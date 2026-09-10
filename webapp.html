@@ -1,0 +1,2575 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#14171c">
+<title>پشتیبانی ماین‌اسویپر</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<style>
+/* ===================================================================
+   Minesweeper Support WebApp — Mobile-first, Telegram-native
+   Inspired by Linear / Vercel, dark glass-morphism, RTL
+   =================================================================== */
+
+:root{
+  --bg: #14171c;
+  --bg-2: #0f1116;
+  --panel: #1c2028;
+  --panel-2: #232833;
+  --line: #2a2f3a;
+  --line-2: #3a4150;
+  --cell: #232833;
+  --text: #e7e9ee;
+  --text-2: #c4c9d4;
+  --muted: #8b93a3;
+  --muted-2: #6b7280;
+  --gold: #e0b64c;
+  --gold-soft: rgba(224,182,76,.12);
+  --gold-line: rgba(224,182,76,.3);
+  --mine: #d9534f;
+  --mine-soft: rgba(217,83,79,.12);
+  --mine-line: rgba(217,83,79,.3);
+  --safe: #4caf7d;
+  --safe-soft: rgba(76,175,125,.12);
+  --safe-line: rgba(76,175,125,.3);
+  --focus: #6ea8fe;
+  --focus-soft: rgba(110,168,254,.12);
+  --focus-line: rgba(110,168,254,.3);
+  --purple: #a78bfa;
+  --purple-soft: rgba(167,139,250,.12);
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+  --shadow-md: 0 4px 14px rgba(0,0,0,.25);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,.4);
+  --shadow-glow: 0 0 0 3px var(--focus-soft);
+
+  --r-sm: 9px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 22px;
+
+  --topbar-h: 56px;
+  --bottomnav-h: 64px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+
+  --ease: cubic-bezier(.4,0,.2,1);
+  --ease-spring: cubic-bezier(.34,1.56,.64,1);
+}
+
+/* ---- Light theme overrides ---- */
+body.light{
+  --bg: #f4f6fa;
+  --bg-2: #eef1f6;
+  --panel: #ffffff;
+  --panel-2: #f7f8fb;
+  --line: #e3e7ee;
+  --line-2: #d0d6e0;
+  --cell: #f1f3f7;
+  --text: #1a1d24;
+  --text-2: #3a4150;
+  --muted: #6b7280;
+  --muted-2: #9aa1ad;
+  --gold: #b88820;
+  --gold-soft: rgba(184,136,32,.12);
+  --gold-line: rgba(184,136,32,.3);
+  --mine: #c63838;
+  --mine-soft: rgba(198,56,56,.1);
+  --safe: #2f8f63;
+  --safe-soft: rgba(47,143,99,.1);
+  --focus: #3a72d6;
+  --focus-soft: rgba(58,114,214,.1);
+  --purple: #7c5fd6;
+  --shadow-md: 0 4px 14px rgba(20,30,50,.08);
+  --shadow-lg: 0 12px 40px rgba(20,30,50,.12);
+}
+
+*{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+
+html, body{ height:100%; }
+
+body{
+  font-family:'Vazirmatn', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+  transition: background .3s var(--ease), color .3s var(--ease);
+}
+
+/* Subtle minesweeper grid background */
+body::before{
+  content:'';
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(42,47,58,.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(42,47,58,.14) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 0%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 0%, transparent 75%);
+}
+body.light::before{
+  background-image:
+    linear-gradient(rgba(20,30,50,.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20,30,50,.06) 1px, transparent 1px);
+}
+
+/* Ambient gold glow */
+body::after{
+  content:'';
+  position:fixed; top:-180px; left:50%; transform:translateX(-50%);
+  width:760px; height:440px; z-index:0; pointer-events:none;
+  background: radial-gradient(ellipse at center, rgba(224,182,76,.08), transparent 70%);
+  filter: blur(50px);
+}
+body.light::after{
+  background: radial-gradient(ellipse at center, rgba(184,136,32,.06), transparent 70%);
+}
+
+.num{font-family:'JetBrains Mono', monospace; font-feature-settings:"tnum"; direction:ltr; display:inline-block;}
+
+::-webkit-scrollbar{ width:0; height:0; }
+*{ scrollbar-width: none; -ms-overflow-style:none; }
+
+/* ===================================================================
+   APP SHELL
+   =================================================================== */
+.app{
+  position:relative; z-index:1;
+  max-width: 520px;
+  margin: 0 auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display:flex; flex-direction:column;
+}
+
+/* ---- Topbar ---- */
+.topbar{
+  position: sticky; top:0; z-index:30;
+  height: var(--topbar-h);
+  padding-top: var(--safe-top);
+  display:flex; align-items:center; gap:10px;
+  padding-inline: 14px;
+  background: linear-gradient(180deg, rgba(20,23,28,.82), rgba(20,23,28,.55));
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border-bottom: 1px solid var(--line);
+  transition: background .3s var(--ease), border-color .3s var(--ease);
+}
+body.light .topbar{
+  background: linear-gradient(180deg, rgba(244,246,250,.85), rgba(244,246,250,.6));
+}
+.topbar-title{
+  font-size: 16px; font-weight: 800; letter-spacing:-.2px;
+  flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.topbar-btn{
+  width:38px; height:38px; border-radius:11px;
+  display:flex; align-items:center; justify-content:center;
+  background: var(--panel); border:1px solid var(--line);
+  color: var(--text-2); cursor:pointer;
+  transition: transform .12s var(--ease), background .15s var(--ease), color .15s var(--ease);
+  flex-shrink:0;
+}
+.topbar-btn:active{ transform: scale(.92); }
+.topbar-btn:hover{ background: var(--panel-2); color: var(--text); }
+.topbar-btn svg{ width:20px; height:20px; }
+
+/* ---- Page container ---- */
+.page-wrap{
+  flex:1; overflow-y:auto; overflow-x:hidden;
+  padding: 14px 14px calc(var(--bottomnav-h) + var(--safe-bottom) + 76px);
+  position:relative;
+}
+.page{
+  animation: pageIn .32s var(--ease);
+}
+@keyframes pageIn{
+  from{ opacity:0; transform: translateY(8px); }
+  to{ opacity:1; transform: translateY(0); }
+}
+
+/* ---- Section title ---- */
+.section-title{
+  font-size: 12.5px; font-weight:700; color: var(--muted);
+  text-transform: uppercase; letter-spacing:.6px;
+  margin: 18px 4px 10px;
+  display:flex; align-items:center; gap:8px;
+}
+.section-title:first-child{ margin-top: 4px; }
+.section-title .count{
+  font-family:'JetBrains Mono', monospace; font-size:11px;
+  background: var(--panel); border:1px solid var(--line);
+  padding: 1px 7px; border-radius: 20px; color: var(--muted);
+}
+
+/* ===================================================================
+   CARDS — glass
+   =================================================================== */
+.card{
+  background: linear-gradient(180deg, rgba(28,32,40,.72), rgba(24,28,36,.62));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border:1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 14px;
+  box-shadow: var(--shadow-md);
+  transition: transform .18s var(--ease), border-color .18s var(--ease), box-shadow .18s var(--ease);
+}
+body.light .card{
+  background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.78));
+}
+.card-pressable{ cursor:pointer; }
+.card-pressable:active{ transform: scale(.985); }
+.card-pressable:hover{ border-color: var(--line-2); box-shadow: var(--shadow-lg); }
+
+/* ===================================================================
+   HOME
+   =================================================================== */
+.hero{
+  display:flex; align-items:center; gap:12px;
+  padding: 4px 2px 14px;
+}
+.hero-avatar{
+  width:52px; height:52px; border-radius:50%;
+  background: linear-gradient(135deg, var(--gold), #b88820);
+  color:#1a1508; font-weight:800; font-size:18px;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  box-shadow: 0 4px 14px rgba(224,182,76,.28), inset 0 1px 0 rgba(255,255,255,.2);
+  overflow:hidden;
+  position:relative;
+}
+.hero-avatar img{ width:100%; height:100%; object-fit:cover; }
+.hero-text{ min-width:0; }
+.hero-hello{ font-size:12px; color: var(--muted); font-weight:500; }
+.hero-name{ font-size:18px; font-weight:800; letter-spacing:-.2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hero-sub{ font-size:11.5px; color: var(--muted); margin-top:1px; }
+
+/* Stat grid */
+.stat-grid{
+  display:grid; grid-template-columns: repeat(2, 1fr); gap:10px;
+  margin-bottom: 4px;
+}
+.stat-card{
+  position:relative; overflow:hidden;
+  padding: 14px;
+}
+.stat-card .stat-icon{
+  width:34px; height:34px; border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:16px; margin-bottom:10px;
+  background: var(--cell); border:1px solid var(--line);
+}
+.stat-card .stat-label{ font-size:11.5px; color: var(--muted); font-weight:600; }
+.stat-card .stat-value{ font-size:26px; font-weight:800; letter-spacing:-.5px; margin-top:2px; }
+.stat-card .stat-value.num{ font-family:'JetBrains Mono', monospace; }
+.stat-card.gold .stat-icon{ background: var(--gold-soft); border-color: var(--gold-line); }
+.stat-card.gold .stat-value{ color: var(--gold); }
+.stat-card.safe .stat-icon{ background: var(--safe-soft); border-color: var(--safe-line); }
+.stat-card.safe .stat-value{ color: var(--safe); }
+.stat-card.focus .stat-icon{ background: var(--focus-soft); border-color: var(--focus-line); }
+.stat-card.focus .stat-value{ color: var(--focus); }
+.stat-card.mine .stat-icon{ background: var(--mine-soft); border-color: var(--mine-line); }
+.stat-card.mine .stat-value{ color: var(--mine); }
+
+/* Quick action banner */
+.cta-banner{
+  display:flex; align-items:center; gap:12px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, rgba(224,182,76,.16), rgba(224,182,76,.04));
+  border:1px solid var(--gold-line);
+  border-radius: var(--r-lg);
+  cursor:pointer;
+  transition: transform .15s var(--ease), box-shadow .15s var(--ease);
+}
+.cta-banner:active{ transform: scale(.99); }
+.cta-banner .cta-icon{
+  width:42px; height:42px; border-radius:12px;
+  background: linear-gradient(135deg, var(--gold), #b88820);
+  color:#1a1508; font-size:20px; font-weight:800;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  box-shadow: 0 4px 14px rgba(224,182,76,.3);
+}
+.cta-banner .cta-text{ flex:1; min-width:0; }
+.cta-banner .cta-title{ font-size:14.5px; font-weight:800; }
+.cta-banner .cta-sub{ font-size:11.5px; color: var(--muted); margin-top:2px; }
+.cta-banner .cta-arrow{ color: var(--gold); font-size:18px; }
+
+/* Recent report list */
+.report-card{
+  display:flex; align-items:center; gap:12px;
+  padding: 12px;
+  margin-bottom: 9px;
+}
+.report-card .rc-icon{
+  width:44px; height:44px; border-radius:12px;
+  background: var(--cell); border:1px solid var(--line);
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px; flex-shrink:0;
+}
+.report-card .rc-body{ flex:1; min-width:0; }
+.report-card .rc-title{
+  font-size:13.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  display:flex; align-items:center; gap:6px;
+}
+.report-card .rc-title .rc-id{ font-family:'JetBrains Mono', monospace; font-size:10.5px; color: var(--muted); font-weight:600; }
+.report-card .rc-desc{
+  font-size:11.5px; color: var(--muted); margin-top:3px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.report-card .rc-meta{
+  display:flex; align-items:center; gap:8px; margin-top:7px; flex-wrap:wrap;
+}
+.report-card .rc-go{ color: var(--muted); font-size:18px; flex-shrink:0; }
+
+/* ===================================================================
+   BADGES / CHIPS
+   =================================================================== */
+.badge{
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:10.5px; font-weight:700; padding: 3px 8px;
+  border-radius: 20px; border:1px solid var(--line);
+  background: var(--cell); color: var(--muted);
+  white-space:nowrap;
+}
+.badge.status-open{ color: var(--gold); background: var(--gold-soft); border-color: var(--gold-line); }
+.badge.status-in_progress{ color: var(--focus); background: var(--focus-soft); border-color: var(--focus-line); }
+.badge.status-resolved{ color: var(--safe); background: var(--safe-soft); border-color: var(--safe-line); }
+.badge.priority-high{ color: var(--mine); background: var(--mine-soft); border-color: var(--mine-line); }
+.badge.priority-medium{ color: var(--gold); background: var(--gold-soft); border-color: var(--gold-line); }
+.badge.priority-low{ color: var(--safe); background: var(--safe-soft); border-color: var(--safe-line); }
+
+.chip{
+  display:inline-flex; align-items:center; gap:5px;
+  font-size:12px; font-weight:600; padding: 7px 13px;
+  border-radius: 22px; border:1px solid var(--line);
+  background: var(--panel); color: var(--muted);
+  cursor:pointer; user-select:none;
+  transition: all .15s var(--ease);
+  white-space:nowrap;
+}
+.chip:active{ transform: scale(.96); }
+.chip:hover{ color: var(--text-2); border-color: var(--line-2); }
+.chip.active{
+  background: var(--gold-soft); border-color: var(--gold-line); color: var(--gold);
+}
+.chip.active.filter-resolved{ background: var(--safe-soft); border-color: var(--safe-line); color: var(--safe); }
+.chip.active.filter-in_progress{ background: var(--focus-soft); border-color: var(--focus-line); color: var(--focus); }
+.chip.active.filter-open{ background: var(--gold-soft); border-color: var(--gold-line); color: var(--gold); }
+
+/* ===================================================================
+   FILTER BAR + SEARCH
+   =================================================================== */
+.filter-bar{
+  display:flex; gap:7px; overflow-x:auto; padding: 2px 0 4px;
+  margin: 0 -2px 12px;
+  -webkit-overflow-scrolling: touch;
+}
+.filter-bar::-webkit-scrollbar{ display:none; }
+
+.search-box{
+  position:relative; margin-bottom: 12px;
+}
+.search-box input{
+  width:100%; padding: 11px 14px 11px 40px;
+  background: var(--panel); border:1px solid var(--line);
+  border-radius: 12px; color: var(--text);
+  font-family: inherit; font-size:13.5px;
+  transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
+}
+.search-box input:focus{
+  outline:none; border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--focus-soft);
+}
+.search-box input::placeholder{ color: var(--muted-2); }
+.search-box .search-icon{
+  position:absolute; left:13px; top:50%; transform:translateY(-50%);
+  color: var(--muted); pointer-events:none;
+  width:18px; height:18px;
+}
+
+/* ===================================================================
+   REPORT DETAIL
+   =================================================================== */
+.detail-head{
+  display:flex; align-items:center; gap:14px; padding: 6px 2px 16px;
+}
+.detail-icon{
+  width:56px; height:56px; border-radius:15px;
+  background: var(--cell); border:1px solid var(--line-2);
+  display:flex; align-items:center; justify-content:center;
+  font-size:26px; flex-shrink:0;
+  box-shadow: var(--shadow-sm);
+}
+.detail-title{ font-size:17px; font-weight:800; letter-spacing:-.3px; }
+.detail-id{ font-family:'JetBrains Mono', monospace; font-size:11.5px; color: var(--muted); margin-top:3px; }
+
+.detail-row{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding: 11px 2px; border-bottom: 1px solid var(--line);
+}
+.detail-row:last-child{ border-bottom:none; }
+.detail-row .dr-label{ font-size:12.5px; color: var(--muted); font-weight:600; }
+.detail-row .dr-value{ font-size:13.5px; font-weight:700; color: var(--text); text-align:left; max-width:60%; }
+.detail-row .dr-value.mono{ font-family:'JetBrains Mono', monospace; font-size:12.5px; }
+
+.detail-section-title{
+  font-size:13px; font-weight:800; margin: 18px 2px 9px;
+  display:flex; align-items:center; gap:7px;
+}
+.detail-section-title .dot{ width:6px; height:6px; border-radius:50%; background: var(--gold); }
+
+.description-box{
+  background: var(--panel-2); border:1px solid var(--line);
+  border-radius: var(--r-md); padding: 12px 14px;
+  font-size:13.5px; line-height:1.75; color: var(--text-2);
+  white-space: pre-wrap; word-break: break-word;
+}
+.admin-note-box{
+  background: linear-gradient(135deg, var(--focus-soft), rgba(110,168,254,.04));
+  border:1px solid var(--focus-line);
+  border-radius: var(--r-md); padding: 12px 14px;
+  font-size:13.5px; line-height:1.75; color: var(--text);
+}
+.admin-note-box .an-label{
+  font-size:11px; font-weight:800; color: var(--focus); margin-bottom:5px;
+  display:flex; align-items:center; gap:5px;
+}
+
+/* Stars */
+.stars{ display:flex; gap:3px; }
+.stars .star{ color: var(--line-2); font-size:18px; }
+.stars .star.filled{ color: var(--gold); }
+
+/* Timeline */
+.timeline{ position:relative; padding-inline-start: 4px; margin-top: 6px; }
+.timeline::before{
+  content:''; position:absolute; top:8px; bottom:8px;
+  inset-inline-start: 11px; width:2px;
+  background: linear-gradient(180deg, var(--gold), var(--line));
+  border-radius:2px;
+}
+.tl-item{
+  position:relative; padding: 8px 0 14px 32px;
+}
+.tl-item::before{
+  content:''; position:absolute; left:6px; top:11px;
+  width:13px; height:13px; border-radius:50%;
+  background: var(--panel); border:2px solid var(--line-2);
+  z-index:1;
+}
+.tl-item.done::before{ border-color: var(--safe); background: var(--safe-soft); }
+.tl-item.current::before{
+  border-color: var(--focus); background: var(--focus);
+  box-shadow: 0 0 0 4px var(--focus-soft);
+  animation: pulse 2s var(--ease) infinite;
+}
+@keyframes pulse{
+  0%,100%{ box-shadow: 0 0 0 4px var(--focus-soft); }
+  50%{ box-shadow: 0 0 0 8px rgba(110,168,254,.06); }
+}
+.tl-label{ font-size:13px; font-weight:700; }
+.tl-time{ font-size:11px; color: var(--muted); margin-top:2px; font-family:'JetBrains Mono', monospace; }
+
+/* Action buttons row */
+.action-row{ display:flex; gap:9px; margin-top: 16px; }
+.action-row .btn{ flex:1; }
+
+/* ===================================================================
+   BUTTONS
+   =================================================================== */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  padding: 12px 16px; border-radius: 12px;
+  font-family: inherit; font-size:14px; font-weight:700;
+  border:1px solid transparent; cursor:pointer;
+  transition: transform .12s var(--ease), background .15s var(--ease), border-color .15s var(--ease), opacity .15s var(--ease);
+  user-select:none; text-decoration:none;
+  min-height: 46px;
+}
+.btn:active{ transform: scale(.97); }
+.btn:disabled{ opacity:.5; cursor:not-allowed; }
+.btn-primary{
+  background: linear-gradient(135deg, var(--gold), #b88820);
+  color:#1a1508;
+  box-shadow: 0 4px 14px rgba(224,182,76,.28);
+}
+.btn-primary:active{ box-shadow: 0 2px 8px rgba(224,182,76,.2); }
+.btn-secondary{
+  background: var(--panel-2); color: var(--text);
+  border-color: var(--line-2);
+}
+.btn-danger{
+  background: var(--mine-soft); color: var(--mine);
+  border-color: var(--mine-line);
+}
+.btn-ghost{
+  background: transparent; color: var(--muted);
+  border-color: var(--line);
+}
+.btn-block{ width:100%; }
+.btn-sm{ padding: 8px 12px; font-size:12.5px; min-height: 36px; }
+
+/* ===================================================================
+   FORM / WIZARD
+   =================================================================== */
+.wizard-progress{
+  display:flex; align-items:center; gap:5px; margin-bottom: 18px;
+  padding: 0 2px;
+}
+.wp-step{
+  flex:1; height:4px; border-radius:3px;
+  background: var(--line);
+  transition: background .3s var(--ease);
+}
+.wp-step.active{ background: var(--gold); }
+.wp-step.done{ background: var(--safe); }
+
+.wizard-step-title{
+  font-size:17px; font-weight:800; letter-spacing:-.3px; margin-bottom:4px;
+}
+.wizard-step-sub{ font-size:12.5px; color: var(--muted); margin-bottom: 16px; }
+
+.cat-grid{
+  display:grid; grid-template-columns: repeat(2, 1fr); gap:10px;
+}
+.cat-item{
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+  padding: 16px 10px; border-radius: var(--r-md);
+  background: var(--panel); border:1px solid var(--line);
+  cursor:pointer; text-align:center;
+  transition: all .18s var(--ease);
+  min-height: 92px;
+}
+.cat-item:active{ transform: scale(.97); }
+.cat-item:hover{ border-color: var(--line-2); }
+.cat-item.selected{
+  border-color: var(--gold);
+  background: linear-gradient(135deg, var(--gold-soft), rgba(224,182,76,.03));
+  box-shadow: 0 0 0 3px var(--gold-soft);
+}
+.cat-item .ci-icon{ font-size:26px; }
+.cat-item .ci-label{ font-size:12px; font-weight:600; color: var(--text-2); line-height:1.4; }
+.cat-item.selected .ci-label{ color: var(--gold); }
+
+.field{ margin-bottom: 14px; }
+.field-label{
+  font-size:12.5px; font-weight:700; color: var(--muted);
+  margin-bottom:7px; display:block;
+}
+.textarea, .input{
+  width:100%; padding: 12px 14px;
+  background: var(--panel); border:1px solid var(--line);
+  border-radius: 12px; color: var(--text);
+  font-family: inherit; font-size:13.5px; line-height:1.7;
+  transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
+  resize: vertical;
+}
+.textarea{ min-height: 120px; }
+.textarea:focus, .input:focus{
+  outline:none; border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--focus-soft);
+}
+.textarea::placeholder, .input::placeholder{ color: var(--muted-2); }
+.field-counter{ font-size:11px; color: var(--muted); text-align:left; margin-top:5px; }
+
+.priority-grid{ display:flex; flex-direction:column; gap:9px; }
+.priority-item{
+  display:flex; align-items:center; gap:13px; padding: 13px 14px;
+  border-radius: var(--r-md); border:1px solid var(--line);
+  background: var(--panel); cursor:pointer;
+  transition: all .15s var(--ease);
+}
+.priority-item:active{ transform: scale(.99); }
+.priority-item:hover{ border-color: var(--line-2); }
+.priority-item.selected{ border-color: var(--gold); background: var(--gold-soft); }
+.priority-item .pi-icon{ font-size:20px; flex-shrink:0; }
+.priority-item .pi-body{ flex:1; }
+.priority-item .pi-title{ font-size:14px; font-weight:700; }
+.priority-item .pi-desc{ font-size:11.5px; color: var(--muted); margin-top:2px; }
+.priority-item .pi-check{
+  width:22px; height:22px; border-radius:50%; border:2px solid var(--line-2);
+  flex-shrink:0; display:flex; align-items:center; justify-content:center;
+  color: transparent; transition: all .15s var(--ease);
+}
+.priority-item.selected .pi-check{ border-color: var(--gold); background: var(--gold); color:#1a1508; }
+
+/* Summary */
+.summary-card{ padding: 14px; }
+.summary-row{
+  display:flex; justify-content:space-between; align-items:center; gap:10px;
+  padding: 9px 0; border-bottom: 1px dashed var(--line);
+}
+.summary-row:last-child{ border-bottom:none; }
+.summary-row .sr-label{ font-size:12.5px; color: var(--muted); font-weight:600; }
+.summary-row .sr-value{ font-size:13.5px; font-weight:700; }
+
+/* ===================================================================
+   STATS
+   =================================================================== */
+.stats-metric-row{ display:grid; grid-template-columns: repeat(2,1fr); gap:10px; margin-bottom: 12px; }
+.mini-stat{
+  padding: 14px; text-align:center;
+}
+.mini-stat .ms-value{ font-size:24px; font-weight:800; }
+.mini-stat .ms-value.num{ font-family:'JetBrains Mono', monospace; }
+.mini-stat .ms-label{ font-size:11.5px; color: var(--muted); font-weight:600; margin-top:3px; }
+.mini-stat.gold .ms-value{ color: var(--gold); }
+.mini-stat.safe .ms-value{ color: var(--safe); }
+.mini-stat.focus .ms-value{ color: var(--focus); }
+.mini-stat.purple .ms-value{ color: var(--purple); }
+
+.chart-wrap{ position:relative; height: 220px; margin: 8px 0 4px; }
+.chart-wrap.bar{ height: 200px; }
+.chart-center-label{
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  text-align:center; pointer-events:none;
+}
+.chart-center-label .ccl-value{ font-size:24px; font-weight:800; }
+.chart-center-label .ccl-label{ font-size:10.5px; color: var(--muted); }
+
+.legend{ display:flex; flex-wrap:wrap; gap:10px; margin-top:8px; justify-content:center; }
+.legend-item{ display:flex; align-items:center; gap:6px; font-size:11.5px; color: var(--muted); }
+.legend-dot{ width:10px; height:10px; border-radius:3px; }
+
+/* ===================================================================
+   PROFILE
+   =================================================================== */
+.profile-hero{
+  display:flex; flex-direction:column; align-items:center; gap:10px;
+  padding: 18px 0 16px;
+}
+.profile-avatar{
+  width:76px; height:76px; border-radius:50%;
+  background: linear-gradient(135deg, var(--gold), #b88820);
+  color:#1a1508; font-weight:800; font-size:28px;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow: 0 8px 24px rgba(224,182,76,.3), inset 0 1px 0 rgba(255,255,255,.2);
+  overflow:hidden;
+}
+.profile-avatar img{ width:100%; height:100%; object-fit:cover; }
+.profile-name{ font-size:18px; font-weight:800; }
+.profile-id{ font-family:'JetBrains Mono', monospace; font-size:12px; color: var(--muted); }
+.profile-username{ font-size:12px; color: var(--focus); }
+
+.setting-row{
+  display:flex; align-items:center; gap:12px; padding: 13px 14px;
+  border-bottom: 1px solid var(--line);
+  cursor:pointer;
+  transition: background .15s var(--ease);
+}
+.setting-row:last-child{ border-bottom:none; }
+.setting-row:active{ background: var(--panel-2); }
+.setting-row .sr-icon{
+  width:34px; height:34px; border-radius:10px;
+  background: var(--cell); border:1px solid var(--line);
+  display:flex; align-items:center; justify-content:center;
+  font-size:16px; flex-shrink:0;
+}
+.setting-row .sr-text{ flex:1; min-width:0; }
+.setting-row .sr-title{ font-size:13.5px; font-weight:700; }
+.setting-row .sr-sub{ font-size:11.5px; color: var(--muted); margin-top:1px; }
+.setting-row .sr-tail{ color: var(--muted); font-size:13px; flex-shrink:0; }
+.toggle{
+  width:42px; height:24px; border-radius:14px; background: var(--line);
+  position:relative; flex-shrink:0; transition: background .2s var(--ease);
+}
+.toggle::after{
+  content:''; position:absolute; top:2px; right:2px;
+  width:20px; height:20px; border-radius:50%; background: var(--text);
+  transition: transform .2s var(--ease);
+}
+.toggle.on{ background: var(--gold); }
+.toggle.on::after{ transform: translateX(-18px); }
+html[dir="ltr"] .toggle::after{ right:auto; left:2px; }
+html[dir="ltr"] .toggle.on::after{ transform: translateX(18px); }
+
+.bot-link{
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  padding: 12px; margin-top: 12px;
+  background: var(--focus-soft); border:1px solid var(--focus-line);
+  border-radius: 12px; color: var(--focus); font-weight:700; font-size:13px;
+  text-decoration:none;
+}
+
+/* ===================================================================
+   BOTTOM NAV
+   =================================================================== */
+.bottom-nav{
+  position:fixed; bottom:0; left:50%; transform:translateX(-50%);
+  width:100%; max-width: 520px; z-index:40;
+  height: calc(var(--bottomnav-h) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  display:flex; align-items:stretch;
+  background: linear-gradient(180deg, rgba(20,23,28,.86), rgba(15,17,22,.94));
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border-top: 1px solid var(--line);
+}
+body.light .bottom-nav{
+  background: linear-gradient(180deg, rgba(244,246,250,.9), rgba(238,241,246,.96));
+}
+.nav-tab{
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:3px; cursor:pointer; color: var(--muted-2);
+  transition: color .15s var(--ease);
+  position:relative;
+}
+.nav-tab .nt-icon{ font-size:21px; line-height:1; transition: transform .2s var(--ease); }
+.nav-tab .nt-label{ font-size:10px; font-weight:600; }
+.nav-tab.active{ color: var(--gold); }
+.nav-tab.active .nt-icon{ transform: translateY(-1px); }
+.nav-tab.active::before{
+  content:''; position:absolute; top:0; left:50%; transform:translateX(-50%);
+  width:28px; height:3px; border-radius:0 0 4px 4px;
+  background: var(--gold);
+}
+
+/* FAB */
+.fab{
+  position:fixed; bottom: calc(var(--bottomnav-h) + var(--safe-bottom) + 16px);
+  right: 18px; z-index:42;
+  width:54px; height:54px; border-radius:50%;
+  background: linear-gradient(135deg, var(--gold), #b88820);
+  color:#1a1508; font-size:26px; font-weight:300;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow: 0 8px 22px rgba(224,182,76,.4), inset 0 1px 0 rgba(255,255,255,.25);
+  cursor:pointer; border:none;
+  transition: transform .18s var(--ease-spring), box-shadow .18s var(--ease);
+}
+.fab:active{ transform: scale(.88) rotate(90deg); }
+.fab:hover{ box-shadow: 0 10px 28px rgba(224,182,76,.5); }
+
+/* ===================================================================
+   EMPTY STATE / SKELETON / SPINNER / TOAST / MODAL
+   =================================================================== */
+.empty{
+  display:flex; flex-direction:column; align-items:center; gap:12px;
+  padding: 48px 24px; text-align:center;
+}
+.empty .em-icon{ font-size:46px; opacity:.7; }
+.empty .em-title{ font-size:14.5px; font-weight:700; color: var(--text-2); }
+.empty .em-sub{ font-size:12.5px; color: var(--muted); max-width: 260px; line-height:1.7; }
+.empty .em-btn{ margin-top:6px; }
+
+.skeleton{
+  background: linear-gradient(90deg, var(--panel) 25%, var(--panel-2) 50%, var(--panel) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: var(--r-md);
+}
+@keyframes shimmer{
+  0%{ background-position: 200% 0; }
+  100%{ background-position: -200% 0; }
+}
+.sk-line{ height:14px; margin-bottom:8px; }
+.sk-line.w70{ width:70%; }
+.sk-line.w40{ width:40%; }
+.sk-card{ height:70px; margin-bottom:10px; }
+
+.spinner{
+  width:30px; height:30px; border-radius:50%;
+  border:3px solid var(--line); border-top-color: var(--gold);
+  animation: spin .8s linear infinite;
+  margin: 0 auto;
+}
+@keyframes spin{ to{ transform: rotate(360deg); } }
+.center-loading{ display:flex; flex-direction:column; align-items:center; gap:14px; padding: 40px; color: var(--muted); font-size:12.5px; }
+
+.toast-wrap{
+  position:fixed; top: calc(var(--safe-top) + 12px); left:50%; transform:translateX(-50%);
+  z-index:100; width: calc(100% - 28px); max-width: 460px;
+  display:flex; flex-direction:column; gap:8px; align-items:center;
+  pointer-events:none;
+}
+.toast{
+  background: var(--panel-2); border:1px solid var(--line-2);
+  color: var(--text); padding: 11px 16px; border-radius: 12px;
+  font-size:13px; font-weight:600; box-shadow: var(--shadow-lg);
+  display:flex; align-items:center; gap:9px;
+  max-width:100%;
+  animation: toastIn .3s var(--ease-spring);
+  pointer-events:auto;
+}
+.toast.success{ border-color: var(--safe-line); }
+.toast.success .t-icon{ color: var(--safe); }
+.toast.error{ border-color: var(--mine-line); }
+.toast.error .t-icon{ color: var(--mine); }
+.toast.info{ border-color: var(--focus-line); }
+.toast.info .t-icon{ color: var(--focus); }
+.toast.fadeout{ animation: toastOut .3s var(--ease) forwards; }
+@keyframes toastIn{ from{ opacity:0; transform: translateY(-14px) scale(.96); } to{ opacity:1; transform: translateY(0) scale(1); } }
+@keyframes toastOut{ to{ opacity:0; transform: translateY(-14px) scale(.96); } }
+
+.modal-backdrop{
+  position:fixed; inset:0; z-index:90;
+  background: rgba(8,10,14,.6); backdrop-filter: blur(6px);
+  display:flex; align-items:center; justify-content:center; padding: 24px;
+  animation: fadeIn .2s var(--ease);
+}
+@keyframes fadeIn{ from{ opacity:0; } to{ opacity:1; } }
+.modal{
+  background: var(--panel); border:1px solid var(--line-2);
+  border-radius: var(--r-xl); padding: 22px;
+  width:100%; max-width: 360px; box-shadow: var(--shadow-lg);
+  animation: modalIn .3s var(--ease-spring);
+}
+@keyframes modalIn{ from{ opacity:0; transform: scale(.9) translateY(20px); } to{ opacity:1; transform: scale(1) translateY(0); } }
+.modal-icon{ font-size:38px; text-align:center; margin-bottom:10px; }
+.modal-title{ font-size:16px; font-weight:800; text-align:center; margin-bottom:8px; }
+.modal-text{ font-size:13px; color: var(--muted); text-align:center; line-height:1.7; margin-bottom:18px; }
+.modal-actions{ display:flex; gap:9px; }
+
+/* Offline banner */
+.offline-banner{
+  display:flex; align-items:center; gap:9px; padding: 9px 14px;
+  margin-bottom: 12px;
+  background: var(--mine-soft); border:1px solid var(--mine-line);
+  border-radius: 12px; font-size:12px; color: var(--mine); font-weight:600;
+}
+.offline-banner .ob-dot{ width:8px; height:8px; border-radius:50%; background: var(--mine); animation: pulse2 1.5s infinite; }
+@keyframes pulse2{ 0%,100%{ opacity:1; } 50%{ opacity:.4; } }
+
+/* Demo mode badge */
+.demo-badge{
+  display:inline-flex; align-items:center; gap:5px;
+  font-size:10px; font-weight:700; padding: 2px 8px;
+  border-radius: 20px; background: var(--purple-soft); color: var(--purple);
+  border:1px solid rgba(167,139,250,.3);
+}
+
+/* LTR adjustments */
+html[dir="ltr"] body{ font-family:'Vazirmatn', -apple-system, sans-serif; }
+html[dir="ltr"] .report-card .rc-meta{ }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Topbar -->
+  <header class="topbar" id="topbar">
+    <button class="topbar-btn" id="tb-back" style="display:none" aria-label="back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    </button>
+    <div class="topbar-title" id="tb-title">پشتیبانی</div>
+    <button class="topbar-btn" id="tb-refresh" aria-label="refresh" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+    </button>
+    <button class="topbar-btn" id="tb-theme" aria-label="theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+    </button>
+  </header>
+
+  <!-- Page content -->
+  <main class="page-wrap" id="page-wrap">
+    <div id="page"></div>
+  </main>
+
+  <!-- Bottom navigation -->
+  <nav class="bottom-nav" id="bottom-nav">
+    <div class="nav-tab" data-route="home">
+      <div class="nt-icon">🏠</div><div class="nt-label">خانه</div>
+    </div>
+    <div class="nav-tab" data-route="reports">
+      <div class="nt-icon">📋</div><div class="nt-label">گزارش‌ها</div>
+    </div>
+    <div class="nav-tab" data-route="stats">
+      <div class="nt-icon">📊</div><div class="nt-label">آمار</div>
+    </div>
+    <div class="nav-tab" data-route="profile">
+      <div class="nt-icon">👤</div><div class="nt-label">پروفایل</div>
+    </div>
+  </nav>
+
+  <!-- FAB -->
+  <button class="fab" id="fab" aria-label="new report">+</button>
+</div>
+
+<!-- Toast + Modal containers -->
+<div class="toast-wrap" id="toast-wrap"></div>
+<div id="modal-root"></div>
+
+<script>
+/* ===================================================================
+   Minesweeper Support WebApp — Single file
+   =================================================================== */
+
+'use strict';
+
+/* ---------------- Constants ---------------- */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAXdf60RnRQ8O8N3m8Xi92P93WPq-Y99lM",
+  authDomain: "minesweeper-b3311.firebaseapp.com",
+  projectId: "minesweeper-b3311",
+  storageBucket: "minesweeper-b3311.firebasestorage.app",
+  messagingSenderId: "162982072596",
+  appId: "1:162982072596:android:1a8ff1d8902c92c1283201"
+};
+
+const BUG_REPORTS_COLLECTION = 'bug_reports';
+const EDIT_WINDOW_MINUTES = 15;
+/* Bot username for the "Open bot" link on the profile page.
+   Replace with the real @username of your support bot. */
+const BOT_USERNAME = 'minesweeper_support_bot';
+
+const CATEGORIES = {
+  crash:   { label: 'بازی کرش می‌شود',    icon: '❌', emoji: '❌' },
+  freeze:  { label: 'گوشی/مرورگر هنگ می‌کند', icon: '🧊', emoji: '🧊' },
+  display: { label: 'مشکل نمایشگر',        icon: '🖼️', emoji: '🖼️' },
+  sound:   { label: 'مشکل صدا',           icon: '🔊', emoji: '🔊' },
+  score:   { label: 'مشکل امتیاز یا رکورد', icon: '🏆', emoji: '🏆' },
+  control: { label: 'مشکل کنترل‌ها',      icon: '🎮', emoji: '🎮' },
+  other:   { label: 'مشکل دیگر',          icon: '📝', emoji: '📝' },
+};
+
+const PRIORITIES = {
+  high:   { label: 'بحرانی', icon: '🔴', desc: 'بازی کار نمی‌کند' },
+  medium: { label: 'متوسط',  icon: '🟡', desc: 'گاهی اوقات مشکل' },
+  low:    { label: 'کم',     icon: '🟢', desc: 'سؤال یا درخواست کوچک' },
+};
+
+const STATUSES = {
+  open:        { label: 'باز',         icon: '🟡', color: '#e0b64c' },
+  in_progress: { label: 'در حال بررسی', icon: '🔵', color: '#6ea8fe' },
+  resolved:    { label: 'حل‌شده',      icon: '🟢', color: '#4caf7d' },
+};
+
+/* ---------------- i18n ---------------- */
+const I18N = {
+  fa: {
+    appTitle: 'پشتیبانی',
+    hello: 'سلام',
+    welcome: 'به مرکز پشتیبانی ماین‌اسویپر خوش آمدید',
+    totalReports: 'کل گزارش‌ها',
+    resolved: 'حل‌شده',
+    inProgress: 'در حال بررسی',
+    open: 'باز',
+    newReport: 'گزارش جدید',
+    newReportCta: 'گزارش جدید بسازید',
+    newReportCtaSub: 'مشکل خود را در چند ثانیه ثبت کنید',
+    recentReports: 'گزارش‌های اخیر',
+    seeAll: 'همه',
+    allReports: 'همه‌ی گزارش‌ها',
+    all: 'همه',
+    search: 'جست‌وجو در توضیحات…',
+    details: 'جزئیات',
+    noReports: 'هنوز گزارشی ثبت نکرده‌اید',
+    noReportsSub: 'با دکمه‌ی «+» اولین گزارش خود را بسازید',
+    noFilteredReports: 'گزارشی با این فیلتر پیدا نشد',
+    noFilteredReportsSub: 'فیلتر یا جست‌وجو را تغییر دهید',
+    category: 'دسته',
+    description: 'توضیح',
+    priority: 'اولویت',
+    status: 'وضعیت',
+    date: 'تاریخ',
+    submit: 'ثبت گزارش',
+    next: 'بعدی',
+    back: 'بازگشت',
+    prev: 'قبلی',
+    step: 'مرحله',
+    of: 'از',
+    pickCategory: 'دسته‌ی مشکل را انتخاب کنید',
+    pickCategorySub: 'کدام بخش از بازی مشکل دارد؟',
+    writeDesc: 'مشکل را توضیح دهید',
+    writeDescSub: 'هرچه دقیق‌تر، سریع‌تر حل می‌شود',
+    pickPriority: 'اولویت را انتخاب کنید',
+    pickPrioritySub: 'شدت مشکل چقدر است؟',
+    summary: 'خلاصه‌ی گزارش',
+    summarySub: 'قبل از ثبت، یک نگاه بیندازید',
+    cancel: 'انصراف',
+    delete: 'حذف',
+    edit: 'ویرایش',
+    adminResponse: 'پاسخ ادمین',
+    assignedAdmin: 'ادمین مسئول',
+    satisfaction: 'امتیاز رضایت',
+    noAdminResponse: 'هنوز پاسخی ثبت نشده',
+    noAssignedAdmin: '—',
+    notRated: 'بدون امتیاز',
+    timeline: 'تایم‌لاین وضعیت',
+    reportCreated: 'گزارش ثبت شد',
+    created: 'ایجاد شد',
+    inReview: 'در حال بررسی',
+    resolvedStatus: 'حل شد',
+    deleteConfirmTitle: 'حذف گزارش؟',
+    deleteConfirmText: 'این گزارش برای همیشه حذف می‌شود. این عمل قابل بازگشت نیست.',
+    confirmDelete: 'بله، حذف کن',
+    editWindowExpired: 'زمان ویرایش/حذف (۱۵ دقیقه) به‌پایان رسیده',
+    editing: 'در حال ویرایش…',
+    save: 'ذخیره',
+    saveChanges: 'ذخیره‌ی تغییرات',
+    reportUpdated: 'گزارش به‌روز شد',
+    reportDeleted: 'گزارش حذف شد',
+    error: 'خطا',
+    retry: 'تلاش دوباره',
+    loading: 'در حال بارگذاری…',
+    noConnection: 'اتصال اینترنت برقرار نیست',
+    noConnectionSub: 'برخی ویژگی‌ها ممکن است کار نکنند',
+    stats: 'آمار',
+    statusDistribution: 'توزیع وضعیت',
+    reportsLast7: 'گزارش‌های ۷ روز اخیر',
+    avgSatisfaction: 'میانگین رضایت',
+    topCategory: 'دسته‌ی پرتکرار',
+    noStats: 'داده‌ی آماری موجود نیست',
+    noStatsSub: 'با ساخت گزارش، آمار شما اینجا نمایش داده می‌شود',
+    profile: 'پروفایل',
+    yourInfo: 'اطلاعات شما',
+    settings: 'تنظیمات',
+    language: 'زبان',
+    theme: 'تم',
+    darkMode: 'حالت تیره',
+    lightMode: 'حالت روشن',
+    closeApp: 'بستن Web App',
+    openBot: 'باز کردن ربات',
+    yourStats: 'آمار کلی شما',
+    botUsername: '@minesweeper_support_bot',
+    demoMode: 'حالت دمو',
+    demoModeSub: 'از داخل تلگرام باز کنید تا داده‌ی واقعی نمایش داده شود',
+    id: 'شناسه',
+    created2: 'ایجاد',
+    updated: 'به‌روزرسانی',
+    lastAdminResponse: 'آخرین پاسخ ادمین',
+    tags: 'برچسب‌ها',
+    none: '—',
+    justNow: 'همین حالا',
+    minutesAgo: 'دقیقه پیش',
+    hoursAgo: 'ساعت پیش',
+    daysAgo: 'روز پیش',
+    monthsAgo: 'ماه پیش',
+    descPlaceholder: 'مثلاً: وقتی روی مین کلیک می‌کنم بازی کرش می‌کند…',
+    minChars: 'حداقل ۱۰ نویسه بنویسید',
+    pickCategoryFirst: 'ابتدا دسته را انتخاب کنید',
+    pickPriorityFirst: 'ابتدا اولویت را انتخاب کنید',
+    writeDescFirst: 'ابتدا توضیح را بنویسید',
+    submitting: 'در حال ثبت…',
+    connectionError: 'اتصال به سرور ناموفق بود',
+    navHome: 'خانه',
+    navReports: 'گزارش‌ها',
+    navStats: 'آمار',
+    navProfile: 'پروفایل',
+    selectCategory: 'انتخاب دسته',
+    selectPriority: 'انتخاب اولویت',
+    yourDescription: 'توضیح شما',
+    creatingReport: 'در حال ساخت گزارش',
+  },
+  en: {
+    appTitle: 'Support',
+    hello: 'Hi',
+    welcome: 'Welcome to Minesweeper Support',
+    totalReports: 'Total reports',
+    resolved: 'Resolved',
+    inProgress: 'In progress',
+    open: 'Open',
+    newReport: 'New report',
+    newReportCta: 'Create a new report',
+    newReportCtaSub: 'Report your issue in seconds',
+    recentReports: 'Recent reports',
+    seeAll: 'All',
+    allReports: 'All reports',
+    all: 'All',
+    search: 'Search descriptions…',
+    details: 'Details',
+    noReports: 'No reports yet',
+    noReportsSub: 'Tap "+" to create your first report',
+    noFilteredReports: 'No reports match this filter',
+    noFilteredReportsSub: 'Try changing the filter or search',
+    category: 'Category',
+    description: 'Description',
+    priority: 'Priority',
+    status: 'Status',
+    date: 'Date',
+    submit: 'Submit report',
+    next: 'Next',
+    back: 'Back',
+    prev: 'Prev',
+    step: 'Step',
+    of: 'of',
+    pickCategory: 'Pick the issue category',
+    pickCategorySub: 'Which part of the game has the issue?',
+    writeDesc: 'Describe the issue',
+    writeDescSub: 'The more detail, the faster we fix it',
+    pickPriority: 'Pick a priority',
+    pickPrioritySub: 'How severe is the issue?',
+    summary: 'Report summary',
+    summarySub: 'Review before submitting',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    edit: 'Edit',
+    adminResponse: 'Admin response',
+    assignedAdmin: 'Assigned admin',
+    satisfaction: 'Satisfaction',
+    noAdminResponse: 'No response yet',
+    noAssignedAdmin: '—',
+    notRated: 'Not rated',
+    timeline: 'Status timeline',
+    reportCreated: 'Report created',
+    created: 'Created',
+    inReview: 'In review',
+    resolvedStatus: 'Resolved',
+    deleteConfirmTitle: 'Delete report?',
+    deleteConfirmText: 'This report will be permanently deleted. This cannot be undone.',
+    confirmDelete: 'Yes, delete',
+    editWindowExpired: 'Edit/delete window (15 min) has expired',
+    editing: 'Editing…',
+    save: 'Save',
+    saveChanges: 'Save changes',
+    reportUpdated: 'Report updated',
+    reportDeleted: 'Report deleted',
+    error: 'Error',
+    retry: 'Retry',
+    loading: 'Loading…',
+    noConnection: 'No internet connection',
+    noConnectionSub: 'Some features may not work',
+    stats: 'Stats',
+    statusDistribution: 'Status distribution',
+    reportsLast7: 'Reports in last 7 days',
+    avgSatisfaction: 'Avg satisfaction',
+    topCategory: 'Top category',
+    noStats: 'No stats available',
+    noStatsSub: 'Create reports to see your stats here',
+    profile: 'Profile',
+    yourInfo: 'Your info',
+    settings: 'Settings',
+    language: 'Language',
+    theme: 'Theme',
+    darkMode: 'Dark mode',
+    lightMode: 'Light mode',
+    closeApp: 'Close Web App',
+    openBot: 'Open bot',
+    yourStats: 'Your overall stats',
+    botUsername: '@minesweeper_support_bot',
+    demoMode: 'Demo mode',
+    demoModeSub: 'Open in Telegram to see real data',
+    id: 'ID',
+    created2: 'Created',
+    updated: 'Updated',
+    lastAdminResponse: 'Last admin response',
+    tags: 'Tags',
+    none: '—',
+    justNow: 'just now',
+    minutesAgo: 'min ago',
+    hoursAgo: 'h ago',
+    daysAgo: 'd ago',
+    monthsAgo: 'mo ago',
+    descPlaceholder: 'e.g. when I click a mine, the game crashes…',
+    minChars: 'Please write at least 10 characters',
+    pickCategoryFirst: 'Please pick a category first',
+    pickPriorityFirst: 'Please pick a priority first',
+    writeDescFirst: 'Please write a description first',
+    submitting: 'Submitting…',
+    connectionError: 'Connection to server failed',
+    navHome: 'Home',
+    navReports: 'Reports',
+    navStats: 'Stats',
+    navProfile: 'Profile',
+    selectCategory: 'Select category',
+    selectPriority: 'Select priority',
+    yourDescription: 'Your description',
+    creatingReport: 'Creating report',
+  }
+};
+
+/* ---------------- State ---------------- */
+const state = {
+  user: null,            // { id, name, username, photoUrl }
+  isDemo: false,
+  language: 'fa',
+  theme: 'dark',
+  reports: [],           // all user reports
+  reportsLoaded: false,
+  loadingReports: false,
+  currentRoute: null,
+  draft: { category: null, description: '', priority: null },
+  charts: {},            // chart instances
+  filter: 'all',         // reports page filter
+  search: '',
+  editingId: null,
+  isOnline: navigator.onLine,
+};
+
+/* ---------------- Telegram ---------------- */
+const tg = (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+
+function initTelegram(){
+  if (tg) {
+    try { tg.ready(); } catch(e) {}
+    try { tg.expand(); } catch(e) {}
+    try { tg.setHeaderColor?.('#14171c'); } catch(e) {}
+    try { tg.setBackgroundColor?.('#14171c'); } catch(e) {}
+  }
+}
+
+function getUser(){
+  if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+    const u = tg.initDataUnsafe.user;
+    return {
+      id: u.id,
+      name: u.first_name || (u.last_name || ('User ' + u.id)),
+      username: u.username || '',
+      photoUrl: u.photo_url || '',
+      isDemo: false,
+    };
+  }
+  // Demo fallback (browser, not Telegram)
+  return {
+    id: 999999999,
+    name: 'کاربر دمو',
+    username: 'demo_user',
+    photoUrl: '',
+    isDemo: true,
+  };
+}
+
+function haptic(type){
+  if (tg && tg.HapticFeedback) {
+    try {
+      if (type === 'impact') tg.HapticFeedback.impactOccurred('light');
+      else if (type === 'notify-success') tg.HapticFeedback.notificationOccurred('success');
+      else if (type === 'notify-error') tg.HapticFeedback.notificationOccurred('error');
+      else if (type === 'selection') tg.HapticFeedback.selectionChanged();
+    } catch(e) {}
+  }
+}
+
+/* ---------------- Firebase ---------------- */
+let db = null;
+let firebaseReady = false;
+
+function initFirebase(){
+  try {
+    if (typeof firebase === 'undefined') return;
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    firebaseReady = true;
+  } catch(e) {
+    console.warn('Firebase init failed:', e);
+    firebaseReady = false;
+  }
+}
+
+/* ---------------- Helpers ---------------- */
+function t(key){
+  const lang = state.language;
+  return (I18N[lang] && I18N[lang][key]) || I18N.fa[key] || key;
+}
+
+function $(sel, root){ return (root || document).querySelector(sel); }
+function $all(sel, root){ return Array.from((root || document).querySelectorAll(sel)); }
+
+function esc(s){
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function shortId(id){
+  if (!id) return '------';
+  return String(id).substring(0, 6).toUpperCase();
+}
+
+function toJalaliOrGregorian(date){
+  // We'll keep it simple: Persian month names + Gregorian year/day for readability.
+  if (!date) return '—';
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return '—';
+  const monthsFa = ['ژانویه','فوریه','مارس','آوریل','مه','ژوئن','ژوئیه','اوت','سپتامبر','اکتبر','نوامبر','دسامبر'];
+  const monthsEn = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const months = state.language === 'fa' ? monthsFa : monthsEn;
+  const day = d.getDate();
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  return `${day} ${month} ${year} · ${hh}:${mm}`;
+}
+
+function timeAgo(date){
+  if (!date) return '—';
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return '—';
+  const diff = Date.now() - d.getTime();
+  const sec = Math.floor(diff/1000);
+  const min = Math.floor(sec/60);
+  const hr = Math.floor(min/60);
+  const day = Math.floor(hr/24);
+  const mo = Math.floor(day/30);
+  if (sec < 60) return t('justNow');
+  if (min < 60) return min + ' ' + t('minutesAgo');
+  if (hr < 24) return hr + ' ' + t('hoursAgo');
+  if (day < 30) return day + ' ' + t('daysAgo');
+  return mo + ' ' + t('monthsAgo');
+}
+
+function toDate(v){
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  if (v.toDate && typeof v.toDate === 'function') return v.toDate();
+  if (typeof v === 'number') return new Date(v);
+  if (typeof v === 'string') return new Date(v);
+  return null;
+}
+
+function canEditOrDelete(report){
+  if (!report) return false;
+  const created = toDate(report.createdAt);
+  if (!created) return false;
+  const elapsedMin = (Date.now() - created.getTime())/60000;
+  return elapsedMin <= EDIT_WINDOW_MINUTES;
+}
+
+function statusBadge(status){
+  const s = STATUSES[status] || { label: status, color: '#8b93a3', icon: '⚪' };
+  return `<span class="badge status-${status}">${s.icon} ${s.label}</span>`;
+}
+function priorityBadge(priority){
+  const p = PRIORITIES[priority] || { label: priority, icon: '⚪' };
+  return `<span class="badge priority-${priority}">${p.icon} ${p.label}</span>`;
+}
+function categoryInfo(cat){ return CATEGORIES[cat] || { label: cat, icon: '📝', emoji: '📝' }; }
+
+function avatarHtml(user){
+  if (user.photoUrl) return `<img src="${esc(user.photoUrl)}" alt="">`;
+  const name = user.name || 'U';
+  const initials = name.trim().split(/\s+/).map(s => s[0]).slice(0,2).join('').toUpperCase();
+  return esc(initials);
+}
+
+/* ---------------- Toast ---------------- */
+function toast(msg, type){
+  type = type || 'info';
+  const icons = { success:'✓', error:'✕', info:'ℹ' };
+  const wrap = $('#toast-wrap');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.innerHTML = `<span class="t-icon">${icons[type]||'ℹ'}</span><span>${esc(msg)}</span>`;
+  wrap.appendChild(el);
+  if (type === 'success') haptic('notify-success');
+  if (type === 'error') haptic('notify-error');
+  setTimeout(() => {
+    el.classList.add('fadeout');
+    setTimeout(() => el.remove(), 320);
+  }, 2600);
+}
+
+/* ---------------- Modal (confirm) ---------------- */
+function showConfirm(title, text, confirmLabel, onConfirm){
+  const root = $('#modal-root');
+  root.innerHTML = `
+    <div class="modal-backdrop" id="mb">
+      <div class="modal">
+        <div class="modal-icon">⚠️</div>
+        <div class="modal-title">${esc(title)}</div>
+        <div class="modal-text">${esc(text)}</div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="mb-cancel">${esc(t('cancel'))}</button>
+          <button class="btn btn-danger" id="mb-ok">${esc(confirmLabel)}</button>
+        </div>
+      </div>
+    </div>`;
+  $('#mb-cancel').onclick = () => { haptic('impact'); root.innerHTML = ''; };
+  $('#mb-ok').onclick = () => { haptic('impact'); root.innerHTML = ''; onConfirm && onConfirm(); };
+  $('#mb').onclick = (e) => { if (e.target.id === 'mb') { root.innerHTML = ''; } };
+}
+
+/* ---------------- Routing ---------------- */
+function navigate(route){
+  if (route !== state.currentRoute) {
+    // destroy charts when leaving stats
+    destroyCharts();
+  }
+  if (location.hash !== '#' + route && location.hash !== route) {
+    location.hash = route;
+  } else {
+    handleRoute();
+  }
+}
+
+function handleRoute(){
+  const hash = location.hash.replace(/^#/, '') || 'home';
+  const parts = hash.split('/');
+  const route = parts[0] || 'home';
+  const param = parts[1] || null;
+
+  state.currentRoute = route;
+  updateBottomNav(route);
+  updateTopbar(route, param);
+
+  const page = $('#page');
+  page.classList.remove('page');
+  void page.offsetWidth; // reflow to re-trigger animation
+  page.classList.add('page');
+
+  switch(route){
+    case 'home':       renderHome(page); break;
+    case 'reports':    renderReports(page); break;
+    case 'report':     renderReportDetail(page, param); break;
+    case 'new':        renderNewReport(page); break;
+    case 'edit':       renderEditReport(page, param); break;
+    case 'stats':      renderStats(page); break;
+    case 'profile':    renderProfile(page); break;
+    default:           renderHome(page);
+  }
+  // scroll page to top
+  $('#page-wrap').scrollTop = 0;
+}
+
+function updateBottomNav(route){
+  $all('.nav-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.route === route);
+  });
+}
+
+function updateTopbar(route, param){
+  const titleEl = $('#tb-title');
+  const backBtn = $('#tb-back');
+  const refreshBtn = $('#tb-refresh');
+  let title = t('appTitle');
+  let showBack = false;
+  let showRefresh = false;
+
+  switch(route){
+    case 'home':    title = t('appTitle'); showRefresh = true; break;
+    case 'reports': title = t('allReports'); showRefresh = true; break;
+    case 'report':  title = t('details'); showBack = true; break;
+    case 'new':     title = t('newReport'); showBack = true; break;
+    case 'edit':    title = t('edit'); showBack = true; break;
+    case 'stats':   title = t('stats'); showRefresh = true; break;
+    case 'profile': title = t('profile'); break;
+  }
+  titleEl.textContent = title;
+  backBtn.style.display = showBack ? 'flex' : 'none';
+  refreshBtn.style.display = showRefresh ? 'flex' : 'none';
+
+  // Hide FAB on wizard/edit pages (already there)
+  const fab = $('#fab');
+  const hideFab = (route === 'new' || route === 'edit');
+  fab.style.display = hideFab ? 'none' : 'flex';
+
+  // Telegram BackButton sync (handler registered once in init)
+  if (tg && tg.BackButton) {
+    try {
+      if (showBack) { tg.BackButton.show(); }
+      else { tg.BackButton.hide(); }
+    } catch(e) {}
+  }
+}
+
+function goBack(){
+  haptic('impact');
+  const r = state.currentRoute;
+  if (r === 'report' || r === 'new' || r === 'edit') {
+    // go back to reports or home
+    navigate('reports');
+  } else {
+    navigate('home');
+  }
+}
+
+/* ---------------- Firebase operations ---------------- */
+async function loadMyReports(force){
+  if (state.loadingReports && !force) return;
+  if (!firebaseReady || !db) {
+    state.reports = [];
+    state.reportsLoaded = true;
+    return;
+  }
+  state.loadingReports = true;
+  try {
+    const snap = await db.collection(BUG_REPORTS_COLLECTION)
+      .where('userId', '==', state.user.id)
+      .orderBy('createdAt', 'desc')
+      .get();
+    state.reports = snap.docs.map(d => {
+      const data = d.data();
+      data.id = d.id;
+      return data;
+    });
+    state.reportsLoaded = true;
+  } catch(e) {
+    console.warn('loadMyReports failed:', e);
+    state.reports = [];
+    state.reportsLoaded = true;
+  } finally {
+    state.loadingReports = false;
+  }
+}
+
+async function createReport(data){
+  if (!firebaseReady || !db) throw new Error('no-firebase');
+  const doc = {
+    userId: state.user.id,
+    userName: state.user.name,
+    userUsername: state.user.username || '',
+    category: data.category,
+    description: data.description,
+    priority: data.priority,
+    status: 'open',
+    hasScreenshot: false,
+    tags: [],
+    adminNote: '',
+    adminComment: '',
+    assignedTo: '',
+    language: state.language,
+    satisfactionRating: 0,
+    satisfactionComment: '',
+    isEdited: false,
+    editedAt: null,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    lastAdminResponseAt: null,
+    reminderSentAt: null,
+  };
+  const ref = await db.collection(BUG_REPORTS_COLLECTION).add(doc);
+  return ref.id;
+}
+
+async function updateReport(id, patch){
+  if (!firebaseReady || !db) throw new Error('no-firebase');
+  patch.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+  patch.isEdited = true;
+  patch.editedAt = firebase.firestore.FieldValue.serverTimestamp();
+  await db.collection(BUG_REPORTS_COLLECTION).doc(id).update(patch);
+}
+
+async function deleteReport(id){
+  if (!firebaseReady || !db) throw new Error('no-firebase');
+  await db.collection(BUG_REPORTS_COLLECTION).doc(id).delete();
+}
+
+function findReport(id){
+  return state.reports.find(r => r.id === id);
+}
+
+/* ---------------- Render: Home ---------------- */
+function renderHome(root){
+  const reports = state.reports;
+  const recent = reports.slice(0, 5);
+  const counts = computeCounts(reports);
+
+  root.innerHTML = `
+    <div class="hero">
+      <div class="hero-avatar">${avatarHtml(state.user)}</div>
+      <div class="hero-text">
+        <div class="hero-hello">${esc(t('hello'))} 👋 ${state.isDemo ? '<span class="demo-badge">DEMO</span>' : ''}</div>
+        <div class="hero-name">${esc(state.user.name)}</div>
+        <div class="hero-sub">${esc(t('welcome'))}</div>
+      </div>
+    </div>
+
+    ${state.isDemo ? `<div class="offline-banner"><div class="ob-dot"></div>${esc(t('demoModeSub'))}</div>` : ''}
+
+    <div class="stat-grid">
+      <div class="card stat-card gold">
+        <div class="stat-icon">📋</div>
+        <div class="stat-label">${esc(t('totalReports'))}</div>
+        <div class="stat-value num">${counts.total}</div>
+      </div>
+      <div class="card stat-card safe">
+        <div class="stat-icon">✅</div>
+        <div class="stat-label">${esc(t('resolved'))}</div>
+        <div class="stat-value num">${counts.resolved}</div>
+      </div>
+      <div class="card stat-card focus">
+        <div class="stat-icon">🔵</div>
+        <div class="stat-label">${esc(t('inProgress'))}</div>
+        <div class="stat-value num">${counts.inProgress}</div>
+      </div>
+      <div class="card stat-card mine">
+        <div class="stat-icon">🟡</div>
+        <div class="stat-label">${esc(t('open'))}</div>
+        <div class="stat-value num">${counts.open}</div>
+      </div>
+    </div>
+
+    <div class="cta-banner" data-action="new-report">
+      <div class="cta-icon">+</div>
+      <div class="cta-text">
+        <div class="cta-title">${esc(t('newReportCta'))}</div>
+        <div class="cta-sub">${esc(t('newReportCtaSub'))}</div>
+      </div>
+      <div class="cta-arrow">‹</div>
+    </div>
+
+    <div class="section-title">
+      ${esc(t('recentReports'))}
+      ${reports.length > 5 ? `<span class="count">${reports.length}</span>` : ''}
+    </div>
+    <div id="recent-list"></div>
+  `;
+
+  const listEl = $('#recent-list', root);
+  if (state.loadingReports && !state.reportsLoaded) {
+    listEl.innerHTML = skeletonReports(3);
+  } else if (recent.length === 0) {
+    listEl.innerHTML = emptyState('📭', t('noReports'), t('noReportsSub'), null);
+  } else {
+    listEl.innerHTML = recent.map(r => reportCardHtml(r)).join('');
+    $all('[data-report-id]', listEl).forEach(el => {
+      el.addEventListener('click', () => { haptic('impact'); navigate('report/' + el.dataset.reportId); });
+    });
+  }
+
+  // CTA click
+  $('[data-action="new-report"]', root).addEventListener('click', () => {
+    haptic('impact'); navigate('new');
+  });
+}
+
+/* ---------------- Render: Reports list ---------------- */
+function renderReports(root){
+  root.innerHTML = `
+    <div class="search-box">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input id="search-input" type="text" placeholder="${esc(t('search'))}" value="${esc(state.search)}">
+    </div>
+    <div class="filter-bar" id="filter-bar">
+      <div class="chip ${state.filter==='all'?'active':''}" data-filter="all">${esc(t('all'))}</div>
+      <div class="chip ${state.filter==='open'?'active filter-open':''}" data-filter="open">${esc(t('open'))}</div>
+      <div class="chip ${state.filter==='in_progress'?'active filter-in_progress':''}" data-filter="in_progress">${esc(t('inProgress'))}</div>
+      <div class="chip ${state.filter==='resolved'?'active filter-resolved':''}" data-filter="resolved">${esc(t('resolved'))}</div>
+    </div>
+    <div id="reports-list"></div>
+  `;
+
+  const listEl = $('#reports-list', root);
+
+  // Filter + search
+  function applyFilters(){
+    let arr = state.reports.slice();
+    if (state.filter !== 'all') arr = arr.filter(r => r.status === state.filter);
+    if (state.search.trim()){
+      const q = state.search.trim().toLowerCase();
+      arr = arr.filter(r => (r.description||'').toLowerCase().includes(q));
+    }
+    return arr;
+  }
+
+  function renderList(){
+    if (state.loadingReports && !state.reportsLoaded) {
+      listEl.innerHTML = skeletonReports(4);
+      return;
+    }
+    const arr = applyFilters();
+    if (arr.length === 0){
+      listEl.innerHTML = emptyState('🔍', t('noFilteredReports'), t('noFilteredReportsSub'), null);
+      return;
+    }
+    listEl.innerHTML = arr.map(r => reportCardHtml(r)).join('');
+    $all('[data-report-id]', listEl).forEach(el => {
+      el.addEventListener('click', () => { haptic('impact'); navigate('report/' + el.dataset.reportId); });
+    });
+  }
+
+  renderList();
+
+  // Filter handlers
+  $all('.chip[data-filter]', root).forEach(chip => {
+    chip.addEventListener('click', () => {
+      haptic('selection');
+      state.filter = chip.dataset.filter;
+      $all('.chip[data-filter]', root).forEach(c => {
+        c.classList.remove('active','filter-open','filter-in_progress','filter-resolved');
+      });
+      chip.classList.add('active');
+      if (state.filter==='open') chip.classList.add('filter-open');
+      if (state.filter==='in_progress') chip.classList.add('filter-in_progress');
+      if (state.filter==='resolved') chip.classList.add('filter-resolved');
+      renderList();
+    });
+  });
+
+  // Search
+  const searchInput = $('#search-input', root);
+  let searchTimer;
+  searchInput.addEventListener('input', () => {
+    state.search = searchInput.value;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(renderList, 180);
+  });
+}
+
+/* ---------------- Report card HTML ---------------- */
+function reportCardHtml(r){
+  const cat = categoryInfo(r.category);
+  const id = shortId(r.id);
+  const date = timeAgo(toDate(r.createdAt));
+  return `
+    <div class="card card-pressable report-card" data-report-id="${esc(r.id)}">
+      <div class="rc-icon">${cat.emoji}</div>
+      <div class="rc-body">
+        <div class="rc-title">${esc(cat.label)} <span class="rc-id">#${esc(id)}</span></div>
+        <div class="rc-desc">${esc((r.description||'').slice(0,80))}${(r.description||'').length>80?'…':''}</div>
+        <div class="rc-meta">
+          ${statusBadge(r.status)}
+          ${priorityBadge(r.priority)}
+          <span class="badge">${esc(date)}</span>
+        </div>
+      </div>
+      <div class="rc-go">‹</div>
+    </div>`;
+}
+
+/* ---------------- Render: Report detail ---------------- */
+function renderReportDetail(root, id){
+  const report = findReport(id);
+  if (!report){
+    root.innerHTML = `
+      <div class="empty">
+        <div class="em-icon">🚫</div>
+        <div class="em-title">${esc(t('error'))}</div>
+        <div class="em-sub">گزارش پیدا نشد</div>
+        <button class="btn btn-secondary em-btn" id="back-home">${esc(t('back'))}</button>
+      </div>`;
+    $('#back-home', root).onclick = () => navigate('reports');
+    return;
+  }
+
+  const cat = categoryInfo(report.category);
+  const created = toDate(report.createdAt);
+  const updated = toDate(report.updatedAt);
+  const lastAdmin = toDate(report.lastAdminResponseAt);
+  const canEdit = canEditOrDelete(report);
+  const satisf = report.satisfactionRating || 0;
+  const stars = [1,2,3,4,5].map(i => `<span class="star ${i<=satisf?'filled':''}">★</span>`).join('');
+
+  // Timeline
+  const timeline = buildTimeline(report);
+
+  root.innerHTML = `
+    <div class="detail-head">
+      <div class="detail-icon">${cat.emoji}</div>
+      <div>
+        <div class="detail-title">${esc(cat.label)}</div>
+        <div class="detail-id">#${esc(shortId(report.id))}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="detail-row"><div class="dr-label">${esc(t('status'))}</div><div class="dr-value">${statusBadge(report.status)}</div></div>
+      <div class="detail-row"><div class="dr-label">${esc(t('priority'))}</div><div class="dr-value">${priorityBadge(report.priority)}</div></div>
+      <div class="detail-row"><div class="dr-label">${esc(t('category'))}</div><div class="dr-value">${esc(cat.label)}</div></div>
+      <div class="detail-row"><div class="dr-label">${esc(t('date'))}</div><div class="dr-value mono">${esc(toJalaliOrGregorian(created))}</div></div>
+      <div class="detail-row"><div class="dr-label">${esc(t('id'))}</div><div class="dr-value mono">${esc(report.id)}</div></div>
+    </div>
+
+    <div class="detail-section-title"><span class="dot"></span>${esc(t('description'))}</div>
+    <div class="description-box">${esc(report.description || '—')}</div>
+
+    <div class="detail-section-title"><span class="dot"></span>${esc(t('adminResponse'))}</div>
+    ${report.adminComment
+      ? `<div class="admin-note-box"><div class="an-label">💬 ${esc(t('adminResponse'))}</div>${esc(report.adminComment)}</div>`
+      : `<div class="description-box" style="text-align:center;color:var(--muted)">${esc(t('noAdminResponse'))}</div>`}
+
+    <div class="detail-section-title"><span class="dot"></span>${esc(t('assignedAdmin'))}</div>
+    <div class="card" style="padding:12px 14px">
+      <div class="detail-row" style="border:none;padding:4px 0">
+        <div class="dr-label">${esc(t('assignedAdmin'))}</div>
+        <div class="dr-value">${esc(report.assignedTo || t('noAssignedAdmin'))}</div>
+      </div>
+      ${lastAdmin ? `<div class="detail-row" style="border:none;padding:4px 0"><div class="dr-label">${esc(t('lastAdminResponse'))}</div><div class="dr-value mono">${esc(toJalaliOrGregorian(lastAdmin))}</div></div>` : ''}
+    </div>
+
+    <div class="detail-section-title"><span class="dot"></span>${esc(t('satisfaction'))}</div>
+    <div class="card" style="padding:14px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div class="stars">${stars}</div>
+      <div class="dr-value mono">${satisf > 0 ? satisf + ' / 5' : esc(t('notRated'))}</div>
+    </div>
+
+    <div class="detail-section-title"><span class="dot"></span>${esc(t('timeline'))}</div>
+    <div class="card">${timeline}</div>
+
+    <div class="action-row">
+      ${canEdit
+        ? `<button class="btn btn-secondary" id="btn-edit">✏️ ${esc(t('edit'))}</button>
+           <button class="btn btn-danger" id="btn-delete">🗑️ ${esc(t('delete'))}</button>`
+        : `<div style="flex:1;text-align:center;color:var(--muted);font-size:12px;padding:12px">⏱️ ${esc(t('editWindowExpired'))}</div>`}
+    </div>
+    <button class="btn btn-ghost btn-block" id="btn-back-detail" style="margin-top:10px">← ${esc(t('back'))}</button>
+  `;
+
+  $('#btn-back-detail', root).onclick = () => { haptic('impact'); navigate('reports'); };
+  if (canEdit){
+    $('#btn-edit', root).onclick = () => { haptic('impact'); navigate('edit/' + report.id); };
+    $('#btn-delete', root).onclick = () => {
+      showConfirm(t('deleteConfirmTitle'), t('deleteConfirmText'), t('confirmDelete'), async () => {
+        try {
+          await deleteReport(report.id);
+          state.reports = state.reports.filter(r => r.id !== report.id);
+          toast(t('reportDeleted'), 'success');
+          navigate('reports');
+        } catch(e) {
+          toast(t('connectionError'), 'error');
+        }
+      });
+    };
+  }
+}
+
+function buildTimeline(report){
+  const created = toDate(report.createdAt);
+  const updated = toDate(report.updatedAt);
+  const items = [
+    { label: t('reportCreated'), time: created, state: 'done' },
+  ];
+  if (report.status === 'in_progress' || report.status === 'resolved') {
+    items.push({ label: t('inReview'), time: report.lastAdminResponseAt ? toDate(report.lastAdminResponseAt) : updated, state: report.status === 'in_progress' ? 'current' : 'done' });
+  }
+  if (report.status === 'resolved') {
+    items.push({ label: t('resolvedStatus'), time: updated, state: 'done' });
+  }
+  return items.map(it => `
+    <div class="tl-item ${it.state}">
+      <div class="tl-label">${esc(it.label)}</div>
+      <div class="tl-time">${esc(toJalaliOrGregorian(it.time))}</div>
+    </div>`).join('');
+}
+
+/* ---------------- Render: New report (wizard) ---------------- */
+function renderNewReport(root){
+  // reset draft if coming fresh
+  if (!state.editingId) {
+    // keep draft across steps
+  }
+  let step = 1;
+  root.innerHTML = `
+    <div class="wizard-progress" id="wp">
+      <div class="wp-step active" data-step="1"></div>
+      <div class="wp-step" data-step="2"></div>
+      <div class="wp-step" data-step="3"></div>
+      <div class="wp-step" data-step="4"></div>
+    </div>
+    <div id="wizard-body"></div>
+  `;
+  const body = $('#wizard-body', root);
+  const wp = $('#wp', root);
+
+  function setStep(n){
+    step = n;
+    $all('.wp-step', wp).forEach(s => {
+      const sn = parseInt(s.dataset.step, 10);
+      s.classList.toggle('active', sn === n);
+      s.classList.toggle('done', sn < n);
+    });
+    renderStep();
+  }
+
+  function renderStep(){
+    if (step === 1) renderStep1();
+    else if (step === 2) renderStep2();
+    else if (step === 3) renderStep3();
+    else if (step === 4) renderStep4();
+    $('#page-wrap').scrollTop = 0;
+  }
+
+  function renderStep1(){
+    body.innerHTML = `
+      <div class="wizard-step-title">${esc(t('pickCategory'))}</div>
+      <div class="wizard-step-sub">${esc(t('pickCategorySub'))}</div>
+      <div class="cat-grid">
+        ${Object.keys(CATEGORIES).map(k => `
+          <div class="cat-item ${state.draft.category===k?'selected':''}" data-cat="${k}">
+            <div class="ci-icon">${CATEGORIES[k].emoji}</div>
+            <div class="ci-label">${esc(CATEGORIES[k].label)}</div>
+          </div>`).join('')}
+      </div>
+      <div class="action-row" style="margin-top:20px">
+        <button class="btn btn-ghost btn-block" id="w-cancel">${esc(t('cancel'))}</button>
+        <button class="btn btn-primary btn-block" id="w-next">${esc(t('next'))} ←</button>
+      </div>`;
+    $all('.cat-item', body).forEach(el => {
+      el.addEventListener('click', () => {
+        haptic('selection');
+        state.draft.category = el.dataset.cat;
+        $all('.cat-item', body).forEach(x => x.classList.remove('selected'));
+        el.classList.add('selected');
+      });
+    });
+    $('#w-cancel', body).onclick = () => { haptic('impact'); navigate('home'); };
+    $('#w-next', body).onclick = () => {
+      haptic('impact');
+      if (!state.draft.category) { toast(t('pickCategoryFirst'), 'error'); return; }
+      setStep(2);
+    };
+  }
+
+  function renderStep2(){
+    body.innerHTML = `
+      <div class="wizard-step-title">${esc(t('writeDesc'))}</div>
+      <div class="wizard-step-sub">${esc(t('writeDescSub'))}</div>
+      <div class="field">
+        <textarea class="textarea" id="w-desc" maxlength="1000" placeholder="${esc(t('descPlaceholder'))}">${esc(state.draft.description)}</textarea>
+        <div class="field-counter"><span id="w-count">${state.draft.description.length}</span> / 1000</div>
+      </div>
+      <div class="action-row" style="margin-top:20px">
+        <button class="btn btn-ghost btn-block" id="w-prev">${esc(t('prev'))}</button>
+        <button class="btn btn-primary btn-block" id="w-next">${esc(t('next'))} ←</button>
+      </div>`;
+    const ta = $('#w-desc', body);
+    const cnt = $('#w-count', body);
+    ta.addEventListener('input', () => {
+      state.draft.description = ta.value;
+      cnt.textContent = ta.value.length;
+    });
+    $('#w-prev', body).onclick = () => { haptic('impact'); setStep(1); };
+    $('#w-next', body).onclick = () => {
+      haptic('impact');
+      if (state.draft.description.trim().length < 10) { toast(t('minChars'), 'error'); return; }
+      setStep(3);
+    };
+  }
+
+  function renderStep3(){
+    body.innerHTML = `
+      <div class="wizard-step-title">${esc(t('pickPriority'))}</div>
+      <div class="wizard-step-sub">${esc(t('pickPrioritySub'))}</div>
+      <div class="priority-grid">
+        ${Object.keys(PRIORITIES).map(k => `
+          <div class="priority-item ${state.draft.priority===k?'selected':''}" data-pri="${k}">
+            <div class="pi-icon">${PRIORITIES[k].icon}</div>
+            <div class="pi-body">
+              <div class="pi-title">${esc(PRIORITIES[k].label)}</div>
+              <div class="pi-desc">${esc(PRIORITIES[k].desc)}</div>
+            </div>
+            <div class="pi-check">✓</div>
+          </div>`).join('')}
+      </div>
+      <div class="action-row" style="margin-top:20px">
+        <button class="btn btn-ghost btn-block" id="w-prev">${esc(t('prev'))}</button>
+        <button class="btn btn-primary btn-block" id="w-next">${esc(t('next'))} ←</button>
+      </div>`;
+    $all('.priority-item', body).forEach(el => {
+      el.addEventListener('click', () => {
+        haptic('selection');
+        state.draft.priority = el.dataset.pri;
+        $all('.priority-item', body).forEach(x => x.classList.remove('selected'));
+        el.classList.add('selected');
+      });
+    });
+    $('#w-prev', body).onclick = () => { haptic('impact'); setStep(2); };
+    $('#w-next', body).onclick = () => {
+      haptic('impact');
+      if (!state.draft.priority) { toast(t('pickPriorityFirst'), 'error'); return; }
+      setStep(4);
+    };
+  }
+
+  function renderStep4(){
+    const cat = categoryInfo(state.draft.category);
+    const pri = PRIORITIES[state.draft.priority];
+    body.innerHTML = `
+      <div class="wizard-step-title">${esc(t('summary'))}</div>
+      <div class="wizard-step-sub">${esc(t('summarySub'))}</div>
+      <div class="card summary-card">
+        <div class="summary-row">
+          <div class="sr-label">${esc(t('category'))}</div>
+          <div class="sr-value">${cat.emoji} ${esc(cat.label)}</div>
+        </div>
+        <div class="summary-row">
+          <div class="sr-label">${esc(t('priority'))}</div>
+          <div class="sr-value">${pri.icon} ${esc(pri.label)}</div>
+        </div>
+        <div class="summary-row">
+          <div class="sr-label">${esc(t('status'))}</div>
+          <div class="sr-value">${statusBadge('open')}</div>
+        </div>
+        <div class="summary-row" style="display:block">
+          <div class="sr-label" style="margin-bottom:6px">${esc(t('description'))}</div>
+          <div class="description-box" style="margin-top:4px">${esc(state.draft.description)}</div>
+        </div>
+      </div>
+      <div class="action-row" style="margin-top:20px">
+        <button class="btn btn-ghost btn-block" id="w-prev">${esc(t('prev'))}</button>
+        <button class="btn btn-primary btn-block" id="w-submit">✓ ${esc(t('submit'))}</button>
+      </div>`;
+    $('#w-prev', body).onclick = () => { haptic('impact'); setStep(3); };
+    $('#w-submit', body).onclick = async () => {
+      haptic('impact');
+      const btn = $('#w-submit', body);
+      btn.disabled = true;
+      btn.textContent = t('submitting');
+      try {
+        const newId = await createReport({
+          category: state.draft.category,
+          description: state.draft.description.trim(),
+          priority: state.draft.priority,
+        });
+        // optimistic local insert
+        const newReport = {
+          id: newId,
+          userId: state.user.id,
+          userName: state.user.name,
+          userUsername: state.user.username,
+          category: state.draft.category,
+          description: state.draft.description.trim(),
+          priority: state.draft.priority,
+          status: 'open',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          hasScreenshot: false,
+          tags: [],
+          adminNote: '', adminComment: '', assignedTo: '',
+          satisfactionRating: 0,
+        };
+        state.reports.unshift(newReport);
+        state.draft = { category: null, description: '', priority: null };
+        toast(t('reportCreated'), 'success');
+        navigate('report/' + newId);
+      } catch(e) {
+        btn.disabled = false;
+        btn.textContent = '✓ ' + t('submit');
+        toast(t('connectionError'), 'error');
+      }
+    };
+  }
+
+  setStep(1);
+}
+
+/* ---------------- Render: Edit report ---------------- */
+function renderEditReport(root, id){
+  const report = findReport(id);
+  if (!report){
+    root.innerHTML = emptyState('🚫', t('error'), 'گزارش پیدا نشد', null);
+    return;
+  }
+  if (!canEditOrDelete(report)){
+    root.innerHTML = emptyState('⏱️', t('editWindowExpired'), '', null);
+    return;
+  }
+  const cat = categoryInfo(report.category);
+  let editCategory = report.category;
+  let editPriority = report.priority;
+
+  root.innerHTML = `
+    <div class="wizard-step-title">${esc(t('edit'))}</div>
+    <div class="wizard-step-sub">${esc(cat.label)} · #${esc(shortId(report.id))}</div>
+
+    <div class="field-label">${esc(t('category'))}</div>
+    <div class="cat-grid" id="edit-cat" style="margin-bottom:14px">
+      ${Object.keys(CATEGORIES).map(k => `
+        <div class="cat-item ${editCategory===k?'selected':''}" data-cat="${k}">
+          <div class="ci-icon">${CATEGORIES[k].emoji}</div>
+          <div class="ci-label">${esc(CATEGORIES[k].label)}</div>
+        </div>`).join('')}
+    </div>
+
+    <div class="field-label">${esc(t('description'))}</div>
+    <div class="field">
+      <textarea class="textarea" id="edit-desc" maxlength="1000">${esc(report.description || '')}</textarea>
+      <div class="field-counter"><span id="edit-count">${(report.description||'').length}</span> / 1000</div>
+    </div>
+
+    <div class="field-label">${esc(t('priority'))}</div>
+    <div class="priority-grid" id="edit-pri" style="margin-bottom:18px">
+      ${Object.keys(PRIORITIES).map(k => `
+        <div class="priority-item ${editPriority===k?'selected':''}" data-pri="${k}">
+          <div class="pi-icon">${PRIORITIES[k].icon}</div>
+          <div class="pi-body">
+            <div class="pi-title">${esc(PRIORITIES[k].label)}</div>
+            <div class="pi-desc">${esc(PRIORITIES[k].desc)}</div>
+          </div>
+          <div class="pi-check">✓</div>
+        </div>`).join('')}
+    </div>
+
+    <div class="action-row">
+      <button class="btn btn-ghost btn-block" id="edit-cancel">${esc(t('cancel'))}</button>
+      <button class="btn btn-primary btn-block" id="edit-save">✓ ${esc(t('saveChanges'))}</button>
+    </div>
+  `;
+
+  $all('.cat-item', root).forEach(el => {
+    el.addEventListener('click', () => {
+      haptic('selection');
+      editCategory = el.dataset.cat;
+      $all('.cat-item', root).forEach(x => x.classList.remove('selected'));
+      el.classList.add('selected');
+    });
+  });
+  $all('.priority-item', root).forEach(el => {
+    el.addEventListener('click', () => {
+      haptic('selection');
+      editPriority = el.dataset.pri;
+      $all('.priority-item', root).forEach(x => x.classList.remove('selected'));
+      el.classList.add('selected');
+    });
+  });
+  const ta = $('#edit-desc', root);
+  const cnt = $('#edit-count', root);
+  ta.addEventListener('input', () => { cnt.textContent = ta.value.length; });
+
+  $('#edit-cancel', root).onclick = () => { haptic('impact'); navigate('report/' + id); };
+  $('#edit-save', root).onclick = async () => {
+    haptic('impact');
+    if (ta.value.trim().length < 10) { toast(t('minChars'), 'error'); return; }
+    const btn = $('#edit-save', root);
+    btn.disabled = true;
+    btn.textContent = t('editing');
+    try {
+      await updateReport(id, {
+        category: editCategory,
+        description: ta.value.trim(),
+        priority: editPriority,
+      });
+      // optimistic local update
+      const r = findReport(id);
+      if (r) {
+        r.category = editCategory;
+        r.description = ta.value.trim();
+        r.priority = editPriority;
+        r.updatedAt = new Date();
+        r.isEdited = true;
+      }
+      toast(t('reportUpdated'), 'success');
+      navigate('report/' + id);
+    } catch(e) {
+      btn.disabled = false;
+      btn.textContent = '✓ ' + t('save');
+      toast(t('connectionError'), 'error');
+    }
+  };
+}
+
+/* ---------------- Stats ---------------- */
+function computeCounts(reports){
+  return {
+    total: reports.length,
+    resolved: reports.filter(r => r.status === 'resolved').length,
+    inProgress: reports.filter(r => r.status === 'in_progress').length,
+    open: reports.filter(r => r.status === 'open').length,
+  };
+}
+
+function destroyCharts(){
+  Object.values(state.charts).forEach(c => { try { c.destroy(); } catch(e){} });
+  state.charts = {};
+}
+
+function renderStats(root){
+  destroyCharts(); // clean up any previous chart instances before re-rendering canvases
+  const reports = state.reports;
+  const counts = computeCounts(reports);
+  const avgSat = computeAvgSatisfaction(reports);
+  const topCat = computeTopCategory(reports);
+  const last7 = computeLast7(reports);
+
+  if (reports.length === 0){
+    root.innerHTML = `
+      ${statsMiniRow(counts, avgSat)}
+      <div class="empty">
+        <div class="em-icon">📊</div>
+        <div class="em-title">${esc(t('noStats'))}</div>
+        <div class="em-sub">${esc(t('noStatsSub'))}</div>
+      </div>`;
+    return;
+  }
+
+  root.innerHTML = `
+    ${statsMiniRow(counts, avgSat)}
+
+    <div class="section-title">${esc(t('statusDistribution'))}</div>
+    <div class="card">
+      <div class="chart-wrap">
+        <canvas id="pie-chart"></canvas>
+        <div class="chart-center-label">
+          <div class="ccl-value num">${counts.total}</div>
+          <div class="ccl-label">${esc(t('totalReports'))}</div>
+        </div>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><span class="legend-dot" style="background:${STATUSES.open.color}"></span>${esc(STATUSES.open.label)} · ${counts.open}</div>
+        <div class="legend-item"><span class="legend-dot" style="background:${STATUSES.in_progress.color}"></span>${esc(STATUSES.in_progress.label)} · ${counts.inProgress}</div>
+        <div class="legend-item"><span class="legend-dot" style="background:${STATUSES.resolved.color}"></span>${esc(STATUSES.resolved.label)} · ${counts.resolved}</div>
+      </div>
+    </div>
+
+    <div class="section-title">${esc(t('reportsLast7'))}</div>
+    <div class="card">
+      <div class="chart-wrap bar"><canvas id="bar-chart"></canvas></div>
+    </div>
+
+    <div class="section-title">${esc(t('topCategory'))}</div>
+    <div class="card" style="display:flex;align-items:center;gap:12px">
+      <div class="rc-icon" style="width:48px;height:48px;font-size:24px">${topCat ? categoryInfo(topCat.key).emoji : '—'}</div>
+      <div>
+        <div style="font-size:14px;font-weight:700">${topCat ? esc(categoryInfo(topCat.key).label) : '—'}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:3px">${topCat ? topCat.count + ' ' + esc(t('totalReports')) : ''}</div>
+      </div>
+    </div>
+  `;
+
+  // Pie chart
+  drawPieChart(counts);
+  // Bar chart
+  drawBarChart(last7);
+}
+
+function statsMiniRow(counts, avgSat){
+  return `
+    <div class="stats-metric-row">
+      <div class="card mini-stat gold">
+        <div class="ms-value num">${counts.total}</div>
+        <div class="ms-label">${esc(t('totalReports'))}</div>
+      </div>
+      <div class="card mini-stat safe">
+        <div class="ms-value num">${counts.resolved}</div>
+        <div class="ms-label">${esc(t('resolved'))}</div>
+      </div>
+      <div class="card mini-stat focus">
+        <div class="ms-value num">${avgSat > 0 ? avgSat.toFixed(1) + '★' : '—'}</div>
+        <div class="ms-label">${esc(t('avgSatisfaction'))}</div>
+      </div>
+      <div class="card mini-stat purple">
+        <div class="ms-value num">${computeTopCategory(state.reports)?.count || 0}</div>
+        <div class="ms-label">${esc(t('topCategory'))}</div>
+      </div>
+    </div>`;
+}
+
+function computeAvgSatisfaction(reports){
+  const rated = reports.filter(r => (r.satisfactionRating || 0) > 0);
+  if (rated.length === 0) return 0;
+  const sum = rated.reduce((a,r) => a + (r.satisfactionRating||0), 0);
+  return sum / rated.length;
+}
+
+function computeTopCategory(reports){
+  if (reports.length === 0) return null;
+  const map = {};
+  reports.forEach(r => { map[r.category] = (map[r.category]||0) + 1; });
+  let best = null;
+  Object.keys(map).forEach(k => {
+    if (!best || map[k] > best.count) best = { key: k, count: map[k] };
+  });
+  return best;
+}
+
+function computeLast7(reports){
+  const days = [];
+  const now = new Date();
+  for (let i = 6; i >= 0; i--){
+    const d = new Date(now);
+    d.setHours(0,0,0,0);
+    d.setDate(d.getDate() - i);
+    days.push({ date: d, count: 0, label: '' });
+  }
+  // Persian/English weekday labels
+  const wdFa = ['یک‌شنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنج‌شنبه','جمعه','شنبه'];
+  const wdEn = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const wd = state.language === 'fa' ? wdFa : wdEn;
+  days.forEach(d => { d.label = wd[d.date.getDay()]; });
+
+  reports.forEach(r => {
+    const created = toDate(r.createdAt);
+    if (!created) return;
+    const c = new Date(created); c.setHours(0,0,0,0);
+    days.forEach(d => {
+      if (d.date.getTime() === c.getTime()) d.count++;
+    });
+  });
+  return days;
+}
+
+function drawPieChart(counts){
+  const canvas = $('#pie-chart');
+  if (!canvas || typeof Chart === 'undefined') return;
+  const isLight = document.body.classList.contains('light');
+  const ctx = canvas.getContext('2d');
+  const data = {
+    labels: [STATUSES.open.label, STATUSES.in_progress.label, STATUSES.resolved.label],
+    datasets: [{
+      data: [counts.open, counts.inProgress, counts.resolved],
+      backgroundColor: [STATUSES.open.color, STATUSES.in_progress.color, STATUSES.resolved.color],
+      borderColor: isLight ? '#fff' : '#1c2028',
+      borderWidth: 3,
+      hoverOffset: 8,
+    }]
+  };
+  // If all zero, show empty placeholder
+  if (counts.total === 0) data.datasets[0].data = [1,1,1];
+  state.charts.pie = new Chart(ctx, {
+    type: 'doughnut',
+    data,
+    options: {
+      cutout: '68%',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          enabled: counts.total > 0,
+          backgroundColor: isLight ? '#1a1d24' : '#1c2028',
+          titleColor: '#e7e9ee', bodyColor: '#c4c9d4',
+          borderColor: '#2a2f3a', borderWidth: 1, padding: 10, cornerRadius: 8,
+        }
+      },
+      animation: { duration: 700, easing: 'easeOutCubic' }
+    }
+  });
+}
+
+function drawBarChart(days){
+  const canvas = $('#bar-chart');
+  if (!canvas || typeof Chart === 'undefined') return;
+  const isLight = document.body.classList.contains('light');
+  const ctx = canvas.getContext('2d');
+  state.charts.bar = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: days.map(d => d.label),
+      datasets: [{
+        label: t('totalReports'),
+        data: days.map(d => d.count),
+        backgroundColor: 'rgba(224,182,76,.7)',
+        borderColor: '#e0b64c',
+        borderWidth: 1.5,
+        borderRadius: 6,
+        maxBarThickness: 32,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: isLight ? '#1a1d24' : '#1c2028',
+          titleColor: '#e7e9ee', bodyColor: '#c4c9d4',
+          borderColor: '#2a2f3a', borderWidth: 1, padding: 10, cornerRadius: 8,
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: isLight ? '#6b7280' : '#8b93a3', font: { family: 'Vazirmatn', size: 11 } }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { color: isLight ? '#6b7280' : '#8b93a3', stepSize: 1, font: { family: 'JetBrains Mono', size: 11 } },
+          grid: { color: isLight ? 'rgba(20,30,50,.06)' : 'rgba(42,47,58,.4)' }
+        }
+      },
+      animation: { duration: 700, easing: 'easeOutCubic' }
+    }
+  });
+}
+
+/* ---------------- Profile ---------------- */
+function renderProfile(root){
+  const counts = computeCounts(state.reports);
+  const avgSat = computeAvgSatisfaction(state.reports);
+  const themeOn = state.theme === 'dark';
+
+  root.innerHTML = `
+    <div class="profile-hero">
+      <div class="profile-avatar">${avatarHtml(state.user)}</div>
+      <div class="profile-name">${esc(state.user.name)} ${state.isDemo ? '<span class="demo-badge">DEMO</span>' : ''}</div>
+      <div class="profile-id">#${esc(state.user.id)}</div>
+      ${state.user.username ? `<div class="profile-username">@${esc(state.user.username)}</div>` : ''}
+    </div>
+
+    <div class="section-title">${esc(t('yourStats'))}</div>
+    <div class="stat-grid">
+      <div class="card stat-card gold">
+        <div class="stat-icon">📋</div>
+        <div class="stat-label">${esc(t('totalReports'))}</div>
+        <div class="stat-value num">${counts.total}</div>
+      </div>
+      <div class="card stat-card safe">
+        <div class="stat-icon">✅</div>
+        <div class="stat-label">${esc(t('resolved'))}</div>
+        <div class="stat-value num">${counts.resolved}</div>
+      </div>
+    </div>
+
+    <div class="section-title">${esc(t('settings'))}</div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="setting-row" id="set-language">
+        <div class="sr-icon">🌐</div>
+        <div class="sr-text">
+          <div class="sr-title">${esc(t('language'))}</div>
+          <div class="sr-sub">${state.language === 'fa' ? 'فارسی' : 'English'}</div>
+        </div>
+        <div class="sr-tail">${state.language === 'fa' ? 'FA' : 'EN'} ›</div>
+      </div>
+      <div class="setting-row" id="set-theme">
+        <div class="sr-icon">${themeOn ? '🌙' : '☀️'}</div>
+        <div class="sr-text">
+          <div class="sr-title">${esc(t('theme'))}</div>
+          <div class="sr-sub">${themeOn ? esc(t('darkMode')) : esc(t('lightMode'))}</div>
+        </div>
+        <div class="toggle ${themeOn?'on':''}" id="theme-toggle"></div>
+      </div>
+      <div class="setting-row" id="set-close">
+        <div class="sr-icon">✕</div>
+        <div class="sr-text">
+          <div class="sr-title">${esc(t('closeApp'))}</div>
+          <div class="sr-sub">Telegram Web App</div>
+        </div>
+        <div class="sr-tail">›</div>
+      </div>
+    </div>
+
+    <a class="bot-link" href="https://t.me/${BOT_USERNAME}" target="_blank" rel="noopener">
+      🤖 ${esc(t('openBot'))}
+    </a>
+  `;
+
+  $('#set-language', root).onclick = () => {
+    haptic('impact');
+    toggleLanguage();
+  };
+  $('#set-theme', root).onclick = () => {
+    haptic('impact');
+    toggleTheme();
+    renderProfile(root);
+  };
+  $('#set-close', root).onclick = () => {
+    haptic('impact');
+    try { tg && tg.close && tg.close(); } catch(e) {}
+    if (!tg) toast('Close is only available in Telegram', 'info');
+  };
+}
+
+/* ---------------- Skeleton / Empty ---------------- */
+function skeletonReports(n){
+  let html = '';
+  for (let i = 0; i < n; i++){
+    html += `<div class="card sk-card"><div class="sk-line w70"></div><div class="sk-line w40"></div></div>`;
+  }
+  return html;
+}
+
+function emptyState(icon, title, sub, btnLabel){
+  return `
+    <div class="empty">
+      <div class="em-icon">${icon}</div>
+      <div class="em-title">${esc(title)}</div>
+      <div class="em-sub">${esc(sub)}</div>
+    </div>`;
+}
+
+/* ---------------- Theme / Language ---------------- */
+function applyTheme(){
+  document.body.classList.toggle('light', state.theme === 'light');
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', state.theme === 'light' ? '#f4f6fa' : '#14171c');
+  if (tg) {
+    try { tg.setHeaderColor?.(state.theme === 'light' ? '#f4f6fa' : '#14171c'); } catch(e) {}
+    try { tg.setBackgroundColor?.(state.theme === 'light' ? '#f4f6fa' : '#14171c'); } catch(e) {}
+  }
+  // redraw charts if on stats page
+  if (state.currentRoute === 'stats' && state.reports.length > 0) {
+    destroyCharts();
+    const counts = computeCounts(state.reports);
+    const last7 = computeLast7(state.reports);
+    // wait for canvas to render
+    setTimeout(() => { drawPieChart(counts); drawBarChart(last7); }, 30);
+  }
+}
+
+function applyLanguage(){
+  document.documentElement.lang = state.language;
+  document.documentElement.dir = state.language === 'fa' ? 'rtl' : 'ltr';
+  // update nav labels
+  const navLabels = ['navHome','navReports','navStats','navProfile'];
+  $all('.nav-tab').forEach((tab,i) => {
+    const lbl = tab.querySelector('.nt-label');
+    if (lbl) lbl.textContent = t(navLabels[i]);
+  });
+  // FAB title
+}
+
+function toggleTheme(){
+  state.theme = state.theme === 'dark' ? 'light' : 'dark';
+  try { localStorage.setItem('msw_theme', state.theme); } catch(e) {}
+  applyTheme();
+}
+
+function toggleLanguage(){
+  state.language = state.language === 'fa' ? 'en' : 'fa';
+  try { localStorage.setItem('msw_lang', state.language); } catch(e) {}
+  applyLanguage();
+  handleRoute(); // re-render current page in new language
+}
+
+/* ---------------- Offline ---------------- */
+function updateOfflineBanner(){
+  state.isOnline = navigator.onLine;
+}
+
+/* ---------------- Init ---------------- */
+async function init(){
+  initTelegram();
+  state.user = getUser();
+  state.isDemo = !!state.user.isDemo;
+
+  // load prefs
+  try {
+    const savedTheme = localStorage.getItem('msw_theme');
+    if (savedTheme === 'light' || savedTheme === 'dark') state.theme = savedTheme;
+    const savedLang = localStorage.getItem('msw_lang');
+    if (savedLang === 'fa' || savedLang === 'en') state.language = savedLang;
+  } catch(e) {}
+
+  applyTheme();
+  applyLanguage();
+
+  initFirebase();
+
+  // Wire events
+  $('#tb-back').onclick = goBack;
+  // Register Telegram native BackButton handler exactly once
+  if (tg && tg.BackButton) {
+    try { tg.BackButton.offClick(goBack); } catch(e) {}
+    try { tg.BackButton.onClick(goBack); } catch(e) {}
+  }
+  $('#tb-theme').onclick = () => { haptic('impact'); toggleTheme(); };
+  $('#tb-refresh').onclick = async () => {
+    haptic('impact');
+    state.reportsLoaded = false;
+    state.loadingReports = true;
+    handleRoute();
+    await loadMyReports(true);
+    handleRoute();
+  };
+  $('#fab').onclick = () => { haptic('impact'); navigate('new'); };
+  $all('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', () => { haptic('impact'); navigate(tab.dataset.route); });
+  });
+
+  window.addEventListener('hashchange', handleRoute);
+
+  window.addEventListener('online', () => { state.isOnline = true; toast('🔗 ' + (state.language==='fa'?'اتصال برقرار شد':'Back online'), 'success'); });
+  window.addEventListener('offline', () => { state.isOnline = false; toast('🔌 ' + (state.language==='fa'?'اتصال قطع شد':'Offline'), 'info'); });
+
+  // initial load
+  state.loadingReports = true;
+  handleRoute(); // render with skeleton
+  await loadMyReports(true);
+  state.loadingReports = false;
+  handleRoute(); // render with data
+}
+
+// boot
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>
